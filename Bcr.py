@@ -3,26 +3,36 @@ import pandas as pd
 import random
 import plotly.express as px
 from collections import Counter, defaultdict
-import os
 
 # --- Cấu hình trang ---
 st.set_page_config(page_title="🎯 Baccarat Predictor Pro", layout="wide")
 
+# --- Khởi tạo session_state ---
+if "data_list" not in st.session_state:
+    st.session_state.data_list = []
+
 # --- Sidebar ---
 with st.sidebar:
     st.title("🎯 Baccarat Predictor Pro")
-    raw_input = st.text_area("🔢 Nhập chuỗi kết quả (P, B, T):", height=150)
-    st.markdown("📌 Ví dụ: `P,B,P,T,B,P,P,B,T,P`")
+    new_result = st.text_input("🔢 Nhập kết quả mới (P, B, T):").strip().upper()
+    add_button = st.button("➕ Thêm vào danh sách")
+    reset_button = st.button("🗑️ Xóa toàn bộ dữ liệu")
     model_option = st.selectbox("🧠 Chọn mô hình dự đoán:", ["Thống kê", "Markov", "Bayesian", "Deep Learning"])
     predict_button = st.button("🔮 Dự đoán tiếp theo")
-    st.markdown("---")
     user_note = st.text_area("📝 Ghi chú cá nhân", height=100)
-    save_button = st.button("💾 Lưu lịch sử & ghi chú")
 
-# --- Xử lý dữ liệu ---
-def parse_input(data):
-    return [x.strip().upper() for x in data.split(",") if x.strip().upper() in ["P", "B", "T"]]
+# --- Xử lý nhập dữ liệu ---
+if add_button and new_result in ["P", "B", "T"]:
+    st.session_state.data_list.append(new_result)
+elif add_button:
+    st.warning("⚠️ Kết quả không hợp lệ. Chỉ chấp nhận P, B, T.")
 
+if reset_button:
+    st.session_state.data_list = []
+
+parsed_data = st.session_state.data_list
+
+# --- Hàm xử lý ---
 def count_streaks(data):
     if not data: return []
     streaks = []
@@ -73,26 +83,16 @@ def deep_learning_predict(data):
     simulated = random.choices(["Player", "Banker", "Tie"], weights=[0.4, 0.4, 0.2])[0]
     return f"Dự đoán AI (giả lập): {simulated}"
 
-# --- Tự động cập nhật từ file CSV ---
-def load_real_data(file_path="du_lieu_thuc.csv"):
-    if os.path.exists(file_path):
-        df = pd.read_csv(file_path)
-        return df["Kết quả"].tolist()
-    return []
-
-# --- Phân tích dữ liệu ---
-parsed_data = parse_input(raw_input)
+# --- Giao diện chính ---
 st.title("📊 Phân Tích & Dự Đoán Baccarat")
-
-if raw_input and not parsed_data:
-    st.warning("⚠️ Dữ liệu không hợp lệ. Vui lòng nhập chuỗi gồm các ký tự P, B, T ngăn cách bằng dấu phẩy.")
 
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.subheader("📜 Lịch sử & Thống kê")
     st.write(f"Tổng số ván: {len(parsed_data)}")
-    st.write(parsed_data)
+    df_display = pd.DataFrame({"Kết quả": parsed_data})
+    st.dataframe(df_display, use_container_width=True)
 
     if parsed_data:
         df_counts = pd.DataFrame(Counter(parsed_data).items(), columns=["Kết quả", "Số lần"])
@@ -103,14 +103,6 @@ with col1:
         df_streaks = pd.DataFrame(streaks, columns=["Kết quả", "Chuỗi"])
         fig2 = px.line(df_streaks, y="Chuỗi", title="📈 Chuỗi liên tiếp")
         st.plotly_chart(fig2, use_container_width=True)
-
-    real_data = load_real_data()
-    if real_data:
-        st.subheader("📂 Dữ liệu thực tế từ file")
-        st.write(f"Số ván: {len(real_data)}")
-        df_real = pd.DataFrame(Counter(real_data).items(), columns=["Kết quả", "Số lần"])
-        fig_real = px.pie(df_real, names="Kết quả", values="Số lần", title="📊 Tỷ lệ kết quả thực tế")
-        st.plotly_chart(fig_real, use_container_width=True)
 
 with col2:
     st.subheader("🔮 Dự đoán tiếp theo")
@@ -128,18 +120,10 @@ with col2:
         st.info("⏳ Nhấn nút 'Dự đoán tiếp theo' để xem kết quả")
 
     st.subheader("📝 Ghi chú của bạn")
-    if raw_input and user_note:
+    if user_note:
         st.code(user_note)
-    elif raw_input:
+    else:
         st.info("Bạn có thể nhập ghi chú bên sidebar")
-
-# --- Lưu lịch sử & ghi chú ---
-if save_button and parsed_data:
-    df_history = pd.DataFrame({"Kết quả": parsed_data})
-    df_history.to_csv("lich_su_baccarat.csv", index=False)
-    with open("ghi_chu.txt", "a", encoding="utf-8") as f:
-        f.write(f"{raw_input} → {user_note}\n")
-    st.success("📁 Lịch sử & ghi chú đã được lưu")
 
 st.markdown("---")
 st.caption("© 2025 Baccarat Predictor Pro — Powered by Az & Copilot")
